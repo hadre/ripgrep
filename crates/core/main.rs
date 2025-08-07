@@ -41,6 +41,9 @@ static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
 /// Then, as it was, then again it will be.
 fn main() -> ExitCode {
+    // 使用parse解析参数，
+    // 将参数提交到run中执行，并返回执行结果
+    // 处理执行结果或者错误
     match run(flags::parse()) {
         Ok(code) => code,
         Err(err) => {

@@ -92,6 +92,8 @@ fn parse_low() -> ParseResult<LowArgs> {
     // Look for arguments from a config file. If we got nothing (whether the
     // file is empty or RIPGREP_CONFIG_PATH wasn't set), then we don't need
     // to re-parse.
+    // 从配置文件中读取参数，并将命令行参数追加到配置文件参数后面
+    // 然后重新调用参数解析
     let config_args = crate::flags::config::args();
     if config_args.is_empty() {
         log::debug!("no extra arguments found from configuration file");
@@ -162,6 +164,7 @@ struct Parser {
     /// A single map that contains all possible flag names. This includes
     /// short and long names, aliases and negations. This maps those names to
     /// indices into `info`.
+    /// byte型字符串到info索引的映射
     map: FlagMap,
     /// A map from IDs returned by the `map` to the corresponding flag
     /// information.
@@ -179,6 +182,7 @@ impl Parser {
         // Since a parser's state is immutable and completely determined by
         // FLAGS, and since FLAGS is a constant, we can initialize it exactly
         // once.
+        // 使用OnceLock相当于单例模式
         static P: OnceLock<Parser> = OnceLock::new();
         P.get_or_init(|| {
             let mut infos = vec![];
@@ -223,6 +227,10 @@ impl Parser {
         I: IntoIterator<Item = O>,
         O: Into<OsString>,
     {
+        // 每个命令和值依次解析，提取出对应的flag名字，并转为FlagInfo，随后提取FlagValue
+        // 最后再使用flag和value更新args
+        // 抽象出了FlagInfo，FlagValue，FlagLookup
+        // FlagLookup主要用来处理查询结果和异常
         let mut p = lexopt::Parser::from_args(rawargs);
         while let Some(arg) = p.next().context("invalid CLI arguments")? {
             let lookup = match arg {
@@ -233,6 +241,7 @@ impl Parser {
                 lexopt::Arg::Short(ch) if ch == 'h' => {
                     // Special case -h/--help since behavior is different
                     // based on whether short or long flag is given.
+                    // 如果有多个special命令，后面的会把前面的覆盖掉
                     args.special = Some(SpecialMode::HelpShort);
                     continue;
                 }
@@ -282,6 +291,9 @@ impl Parser {
                     format!("missing value for flag {mat}")
                 })?)
             };
+            //? 为什么要使用mat来更新args，而不是args调用update
+            // update过程可能涉及到简单的数据校验，如果放在args中，则会导致update逻辑复杂
+            // 因为需要使用各种if else操作，使用update可以把逻辑放到对应的flag中
             mat.flag
                 .update(value, args)
                 .with_context(|| format!("error parsing flag {mat}"))?;
@@ -371,11 +383,13 @@ impl FlagMap {
     /// Create a new map of flags for the given flag information.
     ///
     /// The index of each flag info corresponds to its ID.
+    // 形成名称（字节）到FlagInfo列表索引的映射
     fn new(infos: &[FlagInfo]) -> FlagMap {
         let mut map = std::collections::HashMap::with_capacity(infos.len());
         for (i, info) in infos.iter().enumerate() {
             match info.name {
                 Ok(name) => {
+                    // 验证name参数没有重复，如果有重复，insert会返回Some(old_value)
                     assert_eq!(None, map.insert(name.as_bytes().to_vec(), i));
                 }
                 Err(byte) => {

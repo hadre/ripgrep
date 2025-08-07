@@ -88,6 +88,10 @@ fn parse_reader<R: std::io::Read>(
         if line.is_empty() || line[0] == b'#' {
             return Ok(true);
         }
+        //? 原配置文件中配置格式为--foo=bar，此处并没有根据等号分割的操作
+        //? 同时解析库也不支持等号分割的格式，这里的命令是如何实现正确解析的？
+        // 使用的库并不是不能解析--foo=bar这种格式，只是要求在一个next调用中，要消费掉对应的value
+        // 解析代码中如果遇到long/short flag，后面会继续消费value，因此不会报错
         match line.to_os_str() {
             Ok(osstr) => {
                 args.push(osstr.to_os_string());
