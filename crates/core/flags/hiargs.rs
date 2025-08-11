@@ -112,12 +112,14 @@ impl HiArgs {
     pub(crate) fn from_low_args(mut low: LowArgs) -> anyhow::Result<HiArgs> {
         // Callers should not be trying to convert low-level arguments when
         // a short-circuiting special mode is present.
+        // 特殊模式，即help/version
         assert_eq!(None, low.special, "special mode demands short-circuiting");
         // If the sorting mode isn't supported, then we bail loudly. I'm not
         // sure if this is the right thing to do. We could silently "not sort"
         // as well. If we wanted to go that route, then we could just set
         // `low.sort = None` if `supported()` returns an error.
         if let Some(ref sort) = low.sort {
+            // 检查根据修改时间/创建时间等元数据进行排序系统是否支持
             sort.supported()?;
         }
 
@@ -139,6 +141,7 @@ impl HiArgs {
         }
 
         let mut state = State::new()?;
+        // 传递参数，由各个模块独立自主解析，而非把解析的工作都放在HiArgs中
         let patterns = Patterns::from_low_args(&mut state, &mut low)?;
         let paths = Paths::from_low_args(&mut state, &patterns, &mut low)?;
 

@@ -47,6 +47,7 @@ impl<T> ParseResult<T> {
 
 /// Parse CLI arguments and convert then to their high level representation.
 pub(crate) fn parse() -> ParseResult<HiArgs> {
+    // 解析命令行参数及配置文件参数，并转换为HiArgs
     parse_low().and_then(|low| match HiArgs::from_low_args(low) {
         Ok(hi) => ParseResult::Ok(hi),
         Err(err) => ParseResult::Err(err),
@@ -231,6 +232,7 @@ impl Parser {
         // 最后再使用flag和value更新args
         // 抽象出了FlagInfo，FlagValue，FlagLookup
         // FlagLookup主要用来处理查询结果和异常
+        // 如果有多个相同的flag，使用后面的覆盖前面的
         let mut p = lexopt::Parser::from_args(rawargs);
         while let Some(arg) = p.next().context("invalid CLI arguments")? {
             let lookup = match arg {
