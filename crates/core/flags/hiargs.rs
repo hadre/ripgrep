@@ -975,6 +975,10 @@ impl Patterns {
         state: &mut State,
         low: &mut LowArgs,
     ) -> anyhow::Result<Patterns> {
+        //* 如果有位置参数，则添加位置参数作为pattern，如果没有，则读取-e/--regexp或者-f/--file
+        //* 中的内容作为pattern
+        //* 并且在读取的过程中去重
+        //* 使用-f/--file参数可以从文件或者stdin中获取pattern
         // The first positional is only a pattern when ripgrep is instructed to
         // search and neither -e/--regexp nor -f/--file is given. Basically,
         // the first positional is a pattern only when a pattern hasn't been
@@ -1016,7 +1020,12 @@ impl Patterns {
                 patterns.push(pat);
             }
         };
-        for source in low.patterns.drain(..) {
+        //? 这个地方为什么要使用drain
+        //* 使用drain是为了避免数据的复制，因为后续使用HiArgs就不会再使用LowArgs了
+        //* 同时，low必须使用引用的方式传入，因此只能使用iter()，而无法使用into_iter()（需要所有权）
+        //* 如果使用iter()，结果的元素就是&PatternSource，还需要再clone才能把数据所有权获取出来
+        //* 同时也具有两份拷贝，浪费内存
+        for source in low.patterns.drain(..){
             match source {
                 PatternSource::Regexp(pat) => add(pat),
                 PatternSource::File(path) => {
